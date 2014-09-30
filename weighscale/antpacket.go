@@ -1,9 +1,15 @@
 package main
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 // This is a marshallable datastructure for constructing and decoding ant packets
 
 const (
 	maxDataLength = 56
+	syncByte      = 0xA4
 )
 
 // List of message IDs. Incomplete.
@@ -58,4 +64,19 @@ func (a *antpacket) validateChecksum() bool {
 		return true
 	}
 	return false
+}
+
+// Encode to line format
+func (a *antpacket) toBinary(buffer *bytes.Buffer) (length int, err error) {
+	err = binary.Write(buffer, binary.LittleEndian, a.sync)
+	err = binary.Write(buffer, binary.LittleEndian, a.msglen)
+	err = binary.Write(buffer, binary.LittleEndian, a.id)
+	err = binary.Write(buffer, binary.LittleEndian, a.data)
+	if err != nil {
+		return 0, err
+	}
+	err = binary.Write(buffer, binary.LittleEndian, a.checksum)
+
+	length = buffer.Len()
+	return
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/yokujin/gousb/usb"
 	"log"
+	"time"
 )
 
 const (
@@ -41,14 +43,13 @@ func main() {
 	}()
 
 	if err != nil {
-		fmt.Println("ERROR! ", err)
+		log.Fatalln("ERROR! ", err)
 		return
 	}
 
 	// Exit if no devices opened
 	if len(devs) == 0 {
-		fmt.Println(devs)
-		fmt.Println("No devices found")
+		log.Fatalln("No devices found")
 		return
 	}
 
@@ -56,16 +57,22 @@ func main() {
 
 	antdev := devs[0]
 
-	fmt.Println("Opening Endpoint...")
-	ep_read, err := antdev.OpenEndpoint(
+	log.Println("Opening Endpoints...")
+	epRead, err := antdev.OpenEndpoint(
 		uconf,
 		uiface,
 		usetup,
 		uint8(uep)|uint8(usb.ENDPOINT_DIR_IN),
 	)
+	epWrite, err := antdev.OpenEndpoint(
+		uconf,
+		uiface,
+		usetup,
+		uint8(uep)|uint8(usb.ENDPOINT_DIR_OUT),
+	)
 
 	if err != nil {
-		fmt.Println("Error opening endpoint, ", err)
+		log.Println("Error opening endpoint, ", err)
 		return
 	}
 
@@ -77,14 +84,14 @@ func main() {
 		// Read forever
 		for {
 			buf := make([]byte, maxDataLength, maxDataLength)
-			_, err := ep_read.Read(buf)
+			_, err := epRead.Read(buf)
 			if err == usb.ERROR_TIMEOUT {
 				// Timeout
 				continue
 			}
 
 			if err != nil {
-				fmt.Println("Error reading from endpoint, ", err)
+				log.Fatalln("Error reading from endpoint, ", err)
 				break
 			}
 			// Send out
@@ -92,13 +99,31 @@ func main() {
 		}
 	}()
 
+	log.Println("Sending reset packet...")
 	// Send a reset
-	//outBuf := make([]byte, 12)
+	outBuf := new(bytes.Buffer)
+	resetPacket := &antpacket{
+		syncByte,
+		1,
+		0x4A,
+		[]byte{0},
+		0,
+	}
+	resetPacket.setChecksum()
+	_, err = resetPacket.toBinary(outBuf)
+	if err != nil {
+		log.Fatalln("Error in writing packet to binary, ", err)
+	}
 
-	//ep.Write()
+	epWrite.Write(outBuf.Bytes())
 
-	read := <-readChan
-	log.Println(read)
+	log.Println("Waiting for reply...")
+	select {
+	case read := <-readChan:
+		fmt.Printf("Reply: % X\n", read)
+	case <-time.After(1 * time.Second):
+		log.Println("Timedout")
+	}
 
 	// Exiting
 	fmt.Println("Exiting...")
