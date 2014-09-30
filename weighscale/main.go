@@ -55,8 +55,6 @@ func main() {
 
 	antdev := devs[0]
 
-	// Check for kernel driver involvement and detach if necessary
-
 	fmt.Println("Opening Endpoint...")
 	_, err = antdev.OpenEndpoint(
 		uconf,
@@ -64,6 +62,8 @@ func main() {
 		usetup,
 		uint8(uep)|uint8(usb.ENDPOINT_DIR_OUT),
 	)
+
+	// Verify that the stick is listening
 
 	if err != nil {
 		fmt.Println("Error opening endpoint, ", err)
