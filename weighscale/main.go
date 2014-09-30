@@ -105,7 +105,7 @@ func main() {
 	resetPacket := &antpacket{
 		syncByte,
 		1,
-		0x4A,
+		resetSystem,
 		[]byte{0},
 		0,
 	}
@@ -120,7 +120,11 @@ func main() {
 	log.Println("Waiting for reply...")
 	select {
 	case read := <-readChan:
-		fmt.Printf("Reply: % X\n", read)
+		pkt, err := readAntpacket(read)
+		if err != nil {
+			log.Fatalln("Error reading packet, ", err)
+		}
+		fmt.Printf("Reply: % X\n", pkt)
 	case <-time.After(1 * time.Second):
 		log.Println("Timedout")
 	}

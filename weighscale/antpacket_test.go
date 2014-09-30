@@ -39,3 +39,62 @@ func TestToBinary(t *testing.T) {
 		}
 	}
 }
+
+func TestReadValues(t *testing.T) {
+	testPkt := &antpacket{
+		syncByte,
+		0x4,
+		0x32,
+		[]byte{1, 2, 3, 4},
+		0,
+	}
+	testPkt.setChecksum()
+
+	buf := new(bytes.Buffer)
+	testPkt.toBinary(buf)
+
+	readPacket, err := readAntpacket(buf.Bytes())
+	if err != nil {
+		t.Fatal("Error reading packet, ", err)
+	}
+
+	if readPacket.sync != syncByte || readPacket.msglen != 0x4 || readPacket.id != 0x32 {
+		t.Fail()
+	}
+
+	if len(readPacket.data) != len(testPkt.data) {
+		t.Fail()
+	}
+
+	for i, x := range readPacket.data {
+		if testPkt.data[i] != x {
+			t.Fail()
+		}
+	}
+
+	if readPacket.checksum != testPkt.checksum {
+		t.Fail()
+	}
+}
+
+func TestReadChecksumValidate(t *testing.T) {
+	// Sane packet but incorrect checksum
+	testPkt := &antpacket{
+		syncByte,
+		0x4,
+		0x32,
+		[]byte{1, 2, 3, 4},
+		0,
+	}
+	buf := new(bytes.Buffer)
+	testPkt.toBinary(buf)
+
+	_, err := readAntpacket(buf.Bytes())
+
+	if err == nil {
+		t.Fatal("Failed to reject incorrect checksum")
+	}
+}
+
+func TestReadLength(t *testing.T) {
+}

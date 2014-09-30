@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 )
 
 // This is a marshallable datastructure for constructing and decoding ant packets
@@ -68,15 +69,43 @@ func (a *antpacket) validateChecksum() bool {
 
 // Encode to line format
 func (a *antpacket) toBinary(buffer *bytes.Buffer) (length int, err error) {
-	err = binary.Write(buffer, binary.LittleEndian, a.sync)
-	err = binary.Write(buffer, binary.LittleEndian, a.msglen)
-	err = binary.Write(buffer, binary.LittleEndian, a.id)
-	err = binary.Write(buffer, binary.LittleEndian, a.data)
-	if err != nil {
-		return 0, err
-	}
-	err = binary.Write(buffer, binary.LittleEndian, a.checksum)
+	// TODO: more elegant than this
+	binary.Write(buffer, binary.LittleEndian, a.sync)
+	binary.Write(buffer, binary.LittleEndian, a.msglen)
+	binary.Write(buffer, binary.LittleEndian, a.id)
+	binary.Write(buffer, binary.LittleEndian, a.data)
+	binary.Write(buffer, binary.LittleEndian, a.checksum)
 
 	length = buffer.Len()
 	return
+}
+
+// Unpack from line format
+func readAntpacket(buf []byte) (*antpacket, error) {
+	// Minimum Length check
+	if len(buf) < 5 {
+		// TODO: Const errors
+		return nil, errors.New("Not long enough")
+	}
+
+	ret := &antpacket{}
+	stream := bytes.NewReader(buf)
+
+	ret.sync, _ = stream.ReadByte()
+	ret.msglen, _ = stream.ReadByte()
+	ret.id, _ = stream.ReadByte()
+	data := make([]byte, ret.msglen)
+	_, err := stream.Read(data)
+	if err != nil {
+		return nil, err
+	}
+	ret.data = data
+	ret.checksum, _ = stream.ReadByte()
+
+	// Verify checksum
+	if ret.genChecksum() != ret.checksum {
+		return nil, errors.New("Invalid Checksum")
+	}
+
+	return ret, nil
 }
