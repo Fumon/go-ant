@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/yokujin/gousb/usb"
+	"log"
 )
 
 const (
@@ -56,18 +57,49 @@ func main() {
 	antdev := devs[0]
 
 	fmt.Println("Opening Endpoint...")
-	_, err = antdev.OpenEndpoint(
+	ep_read, err := antdev.OpenEndpoint(
 		uconf,
 		uiface,
 		usetup,
-		uint8(uep)|uint8(usb.ENDPOINT_DIR_OUT),
+		uint8(uep)|uint8(usb.ENDPOINT_DIR_IN),
 	)
-
-	// Verify that the stick is listening
 
 	if err != nil {
 		fmt.Println("Error opening endpoint, ", err)
 		return
 	}
 
+	// Create read channel
+	readChan := make(chan []byte, 20)
+
+	// Launch listener daemon
+	go func() {
+		// Read forever
+		for {
+			buf := make([]byte, maxDataLength, maxDataLength)
+			_, err := ep_read.Read(buf)
+			if err == usb.ERROR_TIMEOUT {
+				// Timeout
+				continue
+			}
+
+			if err != nil {
+				fmt.Println("Error reading from endpoint, ", err)
+				break
+			}
+			// Send out
+			readChan <- buf
+		}
+	}()
+
+	// Send a reset
+	//outBuf := make([]byte, 12)
+
+	//ep.Write()
+
+	read := <-readChan
+	log.Println(read)
+
+	// Exiting
+	fmt.Println("Exiting...")
 }
