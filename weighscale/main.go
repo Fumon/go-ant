@@ -124,7 +124,7 @@ func main() {
 		if err != nil {
 			log.Fatalln("Error reading packet, ", err)
 		}
-		fmt.Printf("Reply: % X\n", pkt)
+		fmt.Printf("Reply: %v\n", pkt)
 	case <-time.After(1 * time.Second):
 		log.Println("Timedout")
 	}

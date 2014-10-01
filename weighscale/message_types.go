@@ -67,6 +67,7 @@ const (
 	CWTest = 0x48
 )
 
+// TODO: bitfield and multi-byte data interpretation for stringifying
 type msgClass struct {
 	name          string
 	class         string
@@ -74,7 +75,7 @@ type msgClass struct {
 	dataFieldDesc []string
 }
 
-var msgClasses = map[int]*msgClass{
+var msgClasses = map[byte]*msgClass{
 	UnassignChannel: &msgClass{
 		"Unassign Channel",
 		"Config",

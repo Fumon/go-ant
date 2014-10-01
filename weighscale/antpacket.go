@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 // This is a marshallable datastructure for constructing and decoding ant packets
@@ -32,6 +33,29 @@ type antpacket struct {
 	id       byte
 	data     []byte
 	checksum byte
+}
+
+// Stringify the packet with field explainations
+func (a *antpacket) String() string {
+	// Get msgClass
+	c := msgClasses[a.id]
+
+	head := fmt.Sprint(
+		"\"", c.name, "\" - ",
+		"Class: ", c.class, "\n\tData: ",
+	)
+
+	data := ""
+
+	for i, x := range c.dataFieldDesc {
+		data = fmt.Sprintf("%s%s - %X, ",
+			data,
+			x,
+			a.data[i],
+		)
+	}
+
+	return fmt.Sprintln(head, data)
 }
 
 // Checksum the packet
