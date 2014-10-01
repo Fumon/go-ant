@@ -13,6 +13,11 @@ const (
 	syncByte      = 0xA4
 )
 
+type antpacketTemplate struct {
+	datalength byte
+	id         byte
+}
+
 // Encapsulates the basic structure of a standard ant packet.
 //
 // Byte #	-	Label
