@@ -1,3 +1,4 @@
+// This is a marshallable datastructure for constructing and decoding ant packets
 package main
 
 import (
@@ -6,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 )
-
-// This is a marshallable datastructure for constructing and decoding ant packets
 
 const (
 	maxDataLength = 56
@@ -33,6 +32,37 @@ type antpacket struct {
 	id       byte
 	data     []byte
 	checksum byte
+}
+
+func GenerateAntpacket(class byte, args ...byte) (*antpacket, error) {
+	if args == nil {
+		return nil, errors.New("Argument list must not be nil")
+	}
+
+	v, ok := msgClasses[class]
+	if ok == false {
+		return nil, errors.New("Unknown class")
+	}
+
+	if len(args) < int(v.template.datalength) {
+		return nil, errors.New("Insufficient arguments")
+	}
+
+	pkt := &antpacket{
+		syncByte,
+		v.template.datalength,
+		v.template.id,
+		make([]byte, v.template.datalength),
+		0,
+	}
+
+	for i, x := range args {
+		pkt.data[i] = x
+	}
+
+	pkt.setChecksum()
+
+	return pkt, nil
 }
 
 // Stringify the packet with field explainations

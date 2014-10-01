@@ -102,14 +102,10 @@ func main() {
 	log.Println("Sending reset packet...")
 	// Send a reset
 	outBuf := new(bytes.Buffer)
-	resetPacket := &antpacket{
-		syncByte,
-		1,
-		SystemReset,
-		[]byte{0},
-		0,
+	resetPacket, err := GenerateAntpacket(SystemReset, 0)
+	if err != nil {
+		log.Fatalln("Error building packet, ", err)
 	}
-	resetPacket.setChecksum()
 	_, err = resetPacket.toBinary(outBuf)
 	if err != nil {
 		log.Fatalln("Error in writing packet to binary, ", err)
