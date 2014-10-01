@@ -13,20 +13,6 @@ const (
 	syncByte      = 0xA4
 )
 
-// List of message IDs. Incomplete.
-const (
-	// Config Messages, HOST -> ANT
-	unassignChannel = 0x41
-	assignChannel   = 0x42
-
-	// Notifications ANT -> HOST
-	startupMessage     = 0x6F
-	serialErrorMessage = 0xAE
-
-	// Control Messages
-	resetSystem = 0x4A
-)
-
 // Encapsulates the basic structure of a standard ant packet.
 //
 // Byte #	-	Label

@@ -105,7 +105,7 @@ func main() {
 	resetPacket := &antpacket{
 		syncByte,
 		1,
-		resetSystem,
+		SystemReset,
 		[]byte{0},
 		0,
 	}

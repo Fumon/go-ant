@@ -1,0 +1,47 @@
+Type	ANT PC Interface Function	Refer Section #	Reply	From	Len	Msg ID	Data 1	Data 2	Data 3	Data 4	Data 5	Data 6	Data 7	Data 8	Data 9 
+
+Unassign Channel	ANT_UnAssignChannel()	9.5.2.1 (p55)	Yes	Host	1	0x41	Channel Number								
+Assign Channel	ANT_AssignChannel()	9.5.2.2 (p56)	Yes	Host	3	0x42	Channel Number	Channel Type	Network Number	[Extended Assign’t]					
+Channel ID	ANT_SetChannelId()	9.5.2.3 (p57)	Yes	Host	5	0x51	Channel Number	Device number(1/2)	Device number(2/2)	Device Type ID	Trans. Type				
+Channel Period	ANT_SetChannelPeriod()	9.5.2.4 (p58)	Yes	Host	3	0x43	Channel Number	Messaging Period(1/2)	Messaging Period(2/2)						
+Search Timeout	ANT_SetChannelSearchTimeou t()	9.5.2.5 (p59)	Yes	Host	2	0x44	Channel Number	Search Timeout							
+Channel RF Frequency	ANT_SetChannelRFFreq()	9.5.2.6 (p59)	Yes	Host	2	0x45	Channel Number	RF Frequency							
+Set Network	ANT_SetNetworkKey()	9.5.2.7 (p60)	Yes	Host	9	0x46	Net #	Key 0	Key 1	Key 2	Key 3	Key 4	Key 5	Key 6	Key 7 
+Transmit Power	ANT_SetTransmitPower()	9.5.2.8 (p60)	Yes	Host	2	0x47	0	TX Power							
+ID List Add	ANT_AddChannelID()	9.5.2.9 (p61)	Yes	Host	6	0x59	Channel Number	Device number(1/2)	Device number(2/2)	Device Type ID	Trans. Type	List Index			
+ID List Config	ANT_ConfigList()	9.5.2.10 (p62)	Yes	Host	3	0x5A	Channel Number	List Size	Exclude						
+Channel Transmit Power	ANT_SetChannelTxPower()	9.5.2.11 (p62)	Yes	Host	2	0x60	Channel Number	TX Power							
+Low Priority Search Timeout	ANT_SetLowPriorityChannelSe archTimeout()	9.5.2.12 (p63)	Yes	Host	2	0x63	Channel Number	Search Timeout							
+Serial Number Set Channel ID	ANT_SetSerialNumChannelId()	9.5.2.13 (p63)	Yes	Host	3	0x65	Channel Number	Device Type ID	Trans. Type		
+Enable Ext RX Mesgs	ANT_RxExtMesgsEnable()	9.5.2.14 (p64)	Yes	Host	2	0x66	0	Enable			
+Enable LED	ANT_EnableLED()	9.5.2.15 (p64)	Yes	Host	2	0x68	0	Enable			
+Crystal Enable	ANT_CrystalEnable()	9.5.2.16 (p65)	Yes	Host	1	0x6D	0				
+Lib Config	ANT_LibConfig()	9.5.2.17 (p65)	Yes	Host	2	0x6E	0	Lib Config			
+Frequency Agility	ANT_ConfigFrequencyAgility()	9.5.2.18 (p66)	Yes	Host	4	0x70	Channel Number	Freq’ 1	Freq’ 2	Freq’ 3	
+Proximity Search	ANT_SetProximitySearch()	9.5.2.19 (p66)	Yes	Host	2	0x71	Channel Number	Search Threshold			
+Channel Search Priority	ANT_SetChannelSearchPriority ()	9.5.2.20 (p67)	Yes	Host	2	0x75	Channel Number	Search Priority			
+
+Startup Message	->ResponseFunc( -, 0x6F)	9.5.3.1 (p68)	-	ANT	1	0x6F	Startup Message 
+Serial Error Message	->ResponseFunc( -, 0xAE)	9.5.3.2 (p68)	Yes	ANT	1	0xAE	Error Number 
+
+System Reset	ANT_ResetSystem()	9.5.4.1 (p69)	No	Host	1	0x4A	0	
+Open Channel	ANT_OpenChannel()	9.5.4.2 (p69)	Yes	Host	1	0x4B	Channel Number								
+Close Channel	ANT_CloseChannel()	9.5.4.3 (p69)	Yes	Host	1	0x4C	Channel Number								
+Open Rx Scan Mode	ANT_OpenRxScanMode()	9.5.4.5 (p70)	Yes	Host	1	0x5B	0								
+Request Message	ANT_RequestMessage()	9.5.4.4 (p70)	Yes	Host	2	0x4D	Channel Number	Message ID							
+Sleep Message	ANT_SleepMessage()	9.5.4.6 (p70)	No	Host	1	0xC5	0								
+
+Broadcast Data	ANT_SendBroadcastData() ->ChannelEventFunc(Chan, EV)	9.5.5.1 (p71)	No	Host/ ANT	9	0x4E	Channel Number	Data0	Data1	Data2	Data3	Data4	Data5	Data6	Data7 
+Acknowledge Data	ANT_SendAcknowledgedData() ->ChannelEventFunc(Chan, EV)	9.5.5.2 (p74)	No	Host/ ANT	9	0x4F	Channel Number	Data0	Data1	Data2	Data3	Data4	Data5	Data6	Data7 
+Burst Transfer Data	ANT_SendBurstTransferPacket () ->ChannelEventFunc(Chan, EV)	9.5.5.3 (p78)	No	Host/ANT	9	0x50	Sequence/Channel Number	Data0	Data1	Data2	Data3	Data4	Data5	Data6	Data7 
+
+Channel Response / Event	->ChannelEventFunc(Chan, MessageCode) or ->ResponseFunc(Chan, MsgID)	9.5.6.1 (p84)	-	ANT	3	0x40	Channel Number	Message ID	Message Code						
+
+Channel Status	->ResponseFunc(Chan,0x52)	9.5.7.1 (p87)	-	ANT	2	0x52	Channel Number	Channel Status							
+Channel ID	->ResponseFunc(Chan,0x51)	9.5.7.2 (p88)	-	ANT	5	0x51	Channel Number	Device number(1/2)	Device number(2/2)	Device Type ID	Man ID				
+ANT Version	->ResponseFunc(-, 0x3E)	9.5.7.3 (p88)	-	ANT	11	0x3E	Ver0	Ver1	Ver2	Ver 3|Ver 4	Ver 5|Ver6	Ver7	Ver8	Ver9	Ver10 
+Capabilities	->ResponseFunc(-, 0x54)	9.5.7.4 (p89)	-	ANT	6	0x54	Max Channels	Max Networks	Standard Options	Advanced Options	Adv’ Options 2	Rsvd			
+Serial Number	->ResponseFunc(-, 0x61)	9.5.7.5 (p89)	-	ANT	4	0x61	Serial Number(1/4)	Serial Number(2/4)	Serial Number(3/4)	Serial Number(4/4)			
+CW Init	ANT_InitCWTestMode()	9.5.8.1 (p90)	Yes	Host	1	0x53	0								
+CW Test	ANT_SetCWTestMode()	9.5.8.2 (p90)	Yes	Host	3	0x48	0	TX Power	RF Freq						
+
