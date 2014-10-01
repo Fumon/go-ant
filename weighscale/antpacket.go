@@ -4,7 +4,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 )
 
@@ -36,16 +35,16 @@ type antpacket struct {
 
 func GenerateAntpacket(class byte, args ...byte) (*antpacket, error) {
 	if args == nil {
-		return nil, errors.New("Argument list must not be nil")
+		return nil, ErrArgumentsNil
 	}
 
 	v, ok := msgClasses[class]
 	if ok == false {
-		return nil, errors.New("Unknown class")
+		return nil, ErrUnknownClass
 	}
 
 	if len(args) < int(v.template.datalength) {
-		return nil, errors.New("Insufficient arguments")
+		return nil, ErrArgumentsLen
 	}
 
 	pkt := &antpacket{
@@ -129,8 +128,7 @@ func (a *antpacket) toBinary(buffer *bytes.Buffer) (length int, err error) {
 func readAntpacket(buf []byte) (*antpacket, error) {
 	// Minimum Length check
 	if len(buf) < 5 {
-		// TODO: Const errors
-		return nil, errors.New("Not long enough")
+		return nil, ErrMinimumPacketLength
 	}
 
 	ret := &antpacket{}
@@ -149,7 +147,7 @@ func readAntpacket(buf []byte) (*antpacket, error) {
 
 	// Verify checksum
 	if ret.genChecksum() != ret.checksum {
-		return nil, errors.New("Invalid Checksum")
+		return nil, ErrChecksumMismatch
 	}
 
 	return ret, nil
