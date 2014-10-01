@@ -43,7 +43,7 @@ func GenerateAntpacket(class byte, args ...byte) (*antpacket, error) {
 		return nil, ErrUnknownClass
 	}
 
-	if len(args) < int(v.template.datalength) {
+	if len(args) != int(v.template.datalength) {
 		return nil, ErrArgumentsLen
 	}
 

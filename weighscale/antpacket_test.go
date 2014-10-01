@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+func TestGenerateAntpacketNoArgs(t *testing.T) {
+	_, err := GenerateAntpacket(SystemReset)
+	if err != ErrArgumentsNil {
+		t.Fail()
+	}
+}
+
+func TestGenerateAntpacketArgLength(t *testing.T) {
+	// Too many
+	_, err := GenerateAntpacket(SystemReset, 0, 1)
+	if err != ErrArgumentsLen {
+		t.Fail()
+	}
+	// Too few
+	_, err = GenerateAntpacket(SetNetwork, 2, 3)
+	if err != ErrArgumentsLen {
+		t.Fail()
+	}
+}
+
+func TestGenerateAntpacketUnknownClass(t *testing.T) {
+	_, err := GenerateAntpacket(0xFF, 0)
+	if err != ErrUnknownClass {
+		t.Fail()
+	}
+}
+
 func TestCalculateChecksumZero(t *testing.T) {
 	// Create a packet with only 0s
 	pkt := &antpacket{}
@@ -91,10 +118,15 @@ func TestReadChecksumValidate(t *testing.T) {
 
 	_, err := readAntpacket(buf.Bytes())
 
-	if err == nil {
+	if err != ErrChecksumMismatch {
 		t.Fatal("Failed to reject incorrect checksum")
 	}
 }
 
 func TestReadLength(t *testing.T) {
+	buf := make([]byte, 3)
+	_, err := readAntpacket(buf)
+	if err != ErrMinimumPacketLength {
+		t.Fail()
+	}
 }
