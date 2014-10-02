@@ -13,4 +13,6 @@ const (
 	ErrUnknownClass        = anterror("Unknown message class")
 	ErrMinimumPacketLength = anterror("Packet is smaller than minimum length")
 	ErrChecksumMismatch    = anterror("Checksum Mismatch")
+	ErrNetworkKeyLength    = anterror("Network key not of correct length")
+	ErrAntTimedout         = anterror("Timed out waiting for a reply from ant stick")
 )
