@@ -6,6 +6,8 @@ import (
 	"github.com/yokujin/gousb/usb"
 	"log"
 	"os"
+	"os/signal"
+	"time"
 )
 
 const (
@@ -96,19 +98,42 @@ func main() {
 	if err != nil {
 		log.Fatalln("Error listening to Heart Rate sensor, ", err)
 	}
+	// TODO: This should be implicit in the Antbuffer
+	defer func() {
+		log.Println("Closing channels...")
+		antbuf.GenSendAndWait(CloseChannel, 0x01)
+		// Wait for complete close
+		log.Println("Waiting for confirmation...")
+		for {
+			pkt, err := antbuf.Wait()
+			if err != nil {
+				log.Fatalln("Error while closing, ", err)
+			}
+			if pkt.id == ChannelResponseOrEvent {
+				if pkt.data[2] == 0x07 {
+					// Channel was successfully closed
+					log.Println("Successfully closed channel ", pkt.data[0], " proceeding to exit...")
+					break
+				}
+			}
+		}
+	}()
 
 	// TODO: Move this somewhere else
 	// Catch close signal
 	killchan := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, os.Kill)
-
-	// TODO: This should be implicit in the Antbuffer
-	defer func() {
-		_, err = antbuf.GenSendAndWait(CloseChannel, 0x01)
-	}()
+	signal.Notify(killchan, os.Interrupt, os.Kill)
 
 	// Listen for everything forever
+readloop:
 	for {
+		// Die if killed
+		select {
+		case <-killchan:
+			log.Println("Recieved KILL!")
+			break readloop
+		case <-time.After(10 * time.Millisecond):
+		}
 		pkt, err := antbuf.Wait()
 		if err == ErrAntTimedout {
 			// Depending on stuff... might need to relisten for device
