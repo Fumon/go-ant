@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/yokujin/gousb/usb"
@@ -124,6 +126,16 @@ func main() {
 	killchan := make(chan os.Signal, 1)
 	signal.Notify(killchan, os.Interrupt, os.Kill)
 
+	// Build a logger
+	// Get date
+	d := time.Now().Unix()
+	file, err := os.Create(fmt.Sprint("/home/fumon/dk/heartlog/heartlog.", d))
+	defer file.Close()
+	// Create logger
+	hlog := log.New(file, "", log.LstdFlags)
+	// Print data defs
+	hlog.Println("Date\tTime Of n-1 Valid Event(1/1024s)\tTime of last Valid Event(1/1024s)\tHeart beat count\tComputed Heart Rate\n")
+
 	// Listen for everything forever
 readloop:
 	for {
@@ -143,6 +155,38 @@ readloop:
 		} else if err != nil {
 			log.Fatalln("Error in waiting, ", err)
 		}
+
+		// Interpret and log correctly
+		// TODO: Decoding format for data
+		// Device profile
+		// - Page
+		//   - Data Descriptors
+		if pkt.id == BroadcastData && pkt.data[0] == 0x01 {
+			// Data page 4
+			if (pkt.data[1] & 0x7F) == 0x04 {
+				pagedata := pkt.data[1:]
+				// Print relevant data to hlogger
+
+				// Interpret times
+				var nminus uint16
+				var prev uint16
+				n := bytes.NewReader(pagedata[2:4])
+				err = binary.Read(n, binary.LittleEndian, &nminus)
+				if err != nil {
+					log.Println(n, "\n", n.Len(), "\n", pagedata[2:4])
+					log.Fatalln("Problem parsing binary, ", err)
+				}
+				p := bytes.NewReader(pagedata[4:6])
+				err = binary.Read(p, binary.LittleEndian, &prev)
+				if err != nil {
+					log.Fatalln("Problem parsing binary, ", err)
+				}
+
+				// Log
+				hlog.Printf("\t%v\t%v\t%v\t%v\n", nminus, prev, pagedata[6], pagedata[7])
+			}
+		}
+
 		log.Println(pkt)
 	}
 
