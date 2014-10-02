@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"github.com/yokujin/gousb/usb"
 	"log"
-	"time"
+	"os"
 )
 
 const (
@@ -25,7 +25,7 @@ func main() {
 	ctx := usb.NewContext()
 	defer ctx.Close()
 
-	ctx.Debug(4)
+	ctx.Debug(3)
 
 	// Find and open the device
 	devs, err := ctx.ListDevices(func(desc *usb.Descriptor) bool {
@@ -76,55 +76,74 @@ func main() {
 		return
 	}
 
-	// Create read channel
-	readChan := make(chan []byte, 20)
+	// Get the ant plus network key
+	key, err := getNetworkKey()
+	if err != nil {
+		log.Fatalln("Error getting key, ", err)
+	}
 
-	// Launch listener daemon
-	go func() {
-		// Read forever
-		for {
-			buf := make([]byte, maxDataLength, maxDataLength)
-			_, err := epRead.Read(buf)
-			if err == usb.ERROR_TIMEOUT {
-				// Timeout
-				continue
-			}
+	// Create antbuffer
+	antbuf, err := NewAntbuffer(epRead, epWrite, key)
+	if err != nil {
+		log.Fatalln("Error in creating antbuffer, ", err)
+	}
 
-			if err != nil {
-				log.Fatalln("Error reading from endpoint, ", err)
-				break
-			}
-			// Send out
-			readChan <- buf
-		}
+	// ListenForCheststrap
+	// TODO: this should be using the returned channel to listen
+	// All errors at a higher than channel level are to be handled
+	// by the Antbuffer
+	_, err = antbuf.SetupChannel(0x01, heartrate)
+	if err != nil {
+		log.Fatalln("Error listening to Heart Rate sensor, ", err)
+	}
+
+	// TODO: Move this somewhere else
+	// Catch close signal
+	killchan := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, os.Kill)
+
+	// TODO: This should be implicit in the Antbuffer
+	defer func() {
+		_, err = antbuf.GenSendAndWait(CloseChannel, 0x01)
 	}()
 
-	log.Println("Sending reset packet...")
-	// Send a reset
-	outBuf := new(bytes.Buffer)
-	resetPacket, err := GenerateAntpacket(SystemReset, 0)
-	if err != nil {
-		log.Fatalln("Error building packet, ", err)
-	}
-	_, err = resetPacket.toBinary(outBuf)
-	if err != nil {
-		log.Fatalln("Error in writing packet to binary, ", err)
-	}
-
-	epWrite.Write(outBuf.Bytes())
-
-	log.Println("Waiting for reply...")
-	select {
-	case read := <-readChan:
-		pkt, err := readAntpacket(read)
-		if err != nil {
-			log.Fatalln("Error reading packet, ", err)
+	// Listen for everything forever
+	for {
+		pkt, err := antbuf.Wait()
+		if err == ErrAntTimedout {
+			// Depending on stuff... might need to relisten for device
+			// Device relisten should really be based off of error
+			// events from the stick.
+			continue
+		} else if err != nil {
+			log.Fatalln("Error in waiting, ", err)
 		}
-		fmt.Printf("Reply: %v\n", pkt)
-	case <-time.After(1 * time.Second):
-		log.Println("Timedout")
+		log.Println(pkt)
 	}
 
 	// Exiting
 	fmt.Println("Exiting...")
+}
+
+func getNetworkKey() (key []byte, err error) {
+	// Network Key
+	// TODO: Publish additional go binary to write the key from command line
+	// TODO: Make flag for where this is
+	// TODO: Note this in documentation
+	file, err := os.Open("/etc/ant/antPlusNetworkKey")
+	if err != nil {
+		return nil, errors.New(fmt.Sprint("Error opening ant key file in /etc/ant/antPlusNetworkKey, ", err))
+	}
+	defer file.Close()
+
+	// The network key is 8 bytes long
+	key = make([]byte, 8)
+	n, err := file.Read(key)
+	if err != nil {
+		return nil, err
+	} else if n != 8 {
+		return nil, ErrNetworkKeyLength
+	}
+
+	return key, nil
 }
