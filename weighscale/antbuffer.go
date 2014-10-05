@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// The Antbuffer is the point of control over the serial interface to the ant stick.
 type Antbuffer struct {
 	epin              usb.Endpoint
 	epout             usb.Endpoint
@@ -24,6 +25,7 @@ type Antbuffer struct {
 // Could be done through the read daemon sending messages to the error channel of the Antbuffer
 // Then the wait function could get a message from a secondary channel
 
+// NewAntbuffer creates a new Antbuffer and populates network key 0x01 with the given network key unless nil.
 func NewAntbuffer(epin, epout usb.Endpoint, networkKey []byte) (*Antbuffer, error) {
 	// Create read channel
 	readChan := make(chan []byte, 20)
@@ -40,7 +42,7 @@ func NewAntbuffer(epin, epout usb.Endpoint, networkKey []byte) (*Antbuffer, erro
 	}
 
 	// Launch listener daemon
-	go antbuf.ReadDaemon()
+	go antbuf.readDaemon()
 
 	// Reset
 	_, err := antbuf.GenSendAndWait(SystemReset, 0)
@@ -71,6 +73,8 @@ func NewAntbuffer(epin, epout usb.Endpoint, networkKey []byte) (*Antbuffer, erro
 	return antbuf, nil
 }
 
+// SetupChannel will begin listening for the device specified by dev, initializing it on given channel.
+// Returns a channel which contains events generated on that channel.
 func (a *Antbuffer) SetupChannel(channel byte, dev *Antdevicetype) (<-chan bytes.Buffer, error) {
 	// Setup Channel Type (Assign Channel)
 	// TODO: Network should not be a magic number
@@ -131,7 +135,10 @@ func (a *Antbuffer) SetupChannel(channel byte, dev *Antdevicetype) (<-chan bytes
 // TODO: Error channel
 // TODO: Submitting to parser
 // Parser distributes to error handler, channel handlers and others
-func (a *Antbuffer) ReadDaemon() {
+
+// readDaemon is the goroutine which holds the read endpoint of the ant stick.
+// It forwards read antpackets to the antbuffer for parsing and distribution.
+func (a *Antbuffer) readDaemon() {
 	// Read forever
 	for {
 		buf := make([]byte, maxDataLength, maxDataLength)
@@ -153,10 +160,11 @@ func (a *Antbuffer) ReadDaemon() {
 }
 
 // TODO some kind of error returning
-func (a *Antbuffer) WriteDaemon() {
+
+func (a *Antbuffer) writeDaemon() {
 }
 
-// Generate and antpacket, send and await reply
+// GenSendAndWait - Generate an antpacket, send and await reply
 func (a *Antbuffer) GenSendAndWait(pktdetails ...byte) (*antpacket, error) {
 	// TODO: Debug flag for this
 	pkt, err := GenerateAntpacket(pktdetails[0], pktdetails[1:]...)
@@ -194,7 +202,7 @@ func (a *Antbuffer) Send(pkt *antpacket) error {
 	return nil
 }
 
-// Listen for reply
+// Wait blocks while listening for a reply. This function will be deprecated soon.
 func (a *Antbuffer) Wait() (*antpacket, error) {
 	log.Println("Waiting for reply...")
 	select {
@@ -210,7 +218,7 @@ func (a *Antbuffer) Wait() (*antpacket, error) {
 	}
 }
 
-// Registers a handler on a channel for a specific class of ant packets.
-func (b *Antbuffer) RegisterHandler(channel int, class byte, receiving chan<- *antpacket) {
+// RegisterHandler tegisters a handler on a channel for a specific class of ant packets.
+func (a *Antbuffer) RegisterHandler(channel int, class byte, receiving chan<- *antpacket) {
 
 }
