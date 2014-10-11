@@ -23,6 +23,13 @@ const (
 func main() {
 	fmt.Println("- Life Begins -\n")
 
+	// Open a file to store the info we get from the weighscale on the first connect. All of it.
+
+	file, err := os.Create(fmt.Sprint("/home/fumon/tmp/weighscale_dump", time.Now().Unix()))
+	if err != nil {
+		log.Fatalln("Error opening file, ", err)
+	}
+
 	// Get context
 	ctx := usb.NewContext()
 	defer ctx.Close()
@@ -94,7 +101,7 @@ func main() {
 	// TODO: this should be using the returned channel to listen
 	// All errors at a higher than channel level are to be handled
 	// by the Antbuffer
-	_, err = antbuf.SetupChannel(0x01, heartrate)
+	_, err = antbuf.SetupChannel(0x01, weighscale)
 	if err != nil {
 		log.Fatalln("Error listening to Heart Rate sensor, ", err)
 	}
@@ -144,6 +151,7 @@ readloop:
 			log.Fatalln("Error in waiting, ", err)
 		}
 		log.Println(pkt)
+		file.WriteString(fmt.Sprint(pkt.String(), "\n"))
 	}
 
 	// Exiting
