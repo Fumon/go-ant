@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"database/sql"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/yokujin/gousb/usb"
 	"log"
 	"os"
 	"os/signal"
 	"time"
+
+	_ "github.com/lib/pq"
+
+	"github.com/yokujin/gousb/usb"
 )
 
 const (
@@ -25,10 +31,18 @@ func main() {
 
 	// Open a file to store the info we get from the weighscale on the first connect. All of it.
 
-	file, err := os.Create(fmt.Sprint("/home/fumon/tmp/weighscale_dump", time.Now().Unix()))
+	file, err := os.OpenFile(fmt.Sprint("/home/fumon/dk/weighscale_data/weighscale_log"), os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalln("Error opening file, ", err)
 	}
+	defer file.Close()
+
+	// Connect to DB
+	db, err := sql.Open("postgres", "user=inserter dbname='quantifiedSelf' sslmode=disable")
+	if err != nil {
+		log.Fatalln("Error connecting to database, ", err)
+	}
+	defer db.Close()
 
 	// Get context
 	ctx := usb.NewContext()
@@ -151,7 +165,32 @@ readloop:
 			log.Fatalln("Error in waiting, ", err)
 		}
 		log.Println(pkt)
-		file.WriteString(fmt.Sprint(pkt.String(), "\n"))
+		// Check for weight packet
+		if pkt.id == BroadcastData && pkt.data[1] == 0x01 {
+			// Grab weight
+			var weight uint16
+			readbuf := bytes.NewBuffer(pkt.data[7:])
+			binary.Read(readbuf, binary.LittleEndian, &weight)
+			weightFactor := float64(weight) / 100.0
+
+			// Write to file & db
+			log.Println("Got a weight of ", weightFactor, "kg or ", (2.204 * weightFactor), "lbs\n\tWriting to file and shutting down.")
+			_, err = file.WriteString(fmt.Sprint(time.Now().UTC().Unix(), "\t", time.Now().UTC(), "\t", weightFactor, "\t", (2.204 * weightFactor), "\n"))
+			if err != nil {
+				log.Fatalln("Problem writing to file, ", err)
+			}
+
+			var insertid int
+			err := db.QueryRow(`INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(?), ?) RETURNING did`, time.Now().UTC().Unix(), weight).Scan(&insertid)
+			if err != nil {
+				log.Println("ERROR inserting into db, ", err)
+				break readloop
+			}
+			log.Println("DB did: ", insertid)
+
+			//TODO: Restart after a long time.
+			break readloop
+		}
 	}
 
 	// Exiting
