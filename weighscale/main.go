@@ -181,7 +181,7 @@ readloop:
 			}
 
 			var insertid int
-			err := db.QueryRow(`INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(?), ?) RETURNING did`, time.Now().UTC().Unix(), weight).Scan(&insertid)
+			err := db.QueryRow(fmt.Sprintf("INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(%v), %v) RETURNING did", time.Now().UTC().Unix(), weight)).Scan(&insertid)
 			if err != nil {
 				log.Println("ERROR inserting into db, ", err)
 				break readloop
