@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/streadway/amqp"
 	"github.com/yokujin/gousb/usb"
 )
 
@@ -43,6 +44,34 @@ func main() {
 		log.Fatalln("Error connecting to database, ", err)
 	}
 	defer db.Close()
+
+	// Open AMQP
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		log.Fatalln("Failed to connect to amqp")
+	}
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Fatalln("Failed to create channel, ")
+	}
+	defer ch.Close()
+
+	channelName := "weights"
+
+	log.Println("Opening channel ", channelName)
+	q, err := ch.QueueDeclare(
+		channelName,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Fatalln("Could not declare Queue")
+	}
 
 	// Get context
 	ctx := usb.NewContext()
@@ -180,13 +209,34 @@ readloop:
 				log.Fatalln("Problem writing to file, ", err)
 			}
 
-			var insertid int
+			var insertid int64
 			err := db.QueryRow(fmt.Sprintf("INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(%v), %v) RETURNING did", time.Now().UTC().Unix(), weight)).Scan(&insertid)
 			if err != nil {
 				log.Println("ERROR inserting into db, ", err)
 				break readloop
 			}
 			log.Println("DB did: ", insertid)
+
+			// Send alert to processor
+			buf := new(bytes.Buffer)
+			err = binary.Write(buf, binary.LittleEndian, insertid)
+			if err != nil {
+				log.Println("Could not write binary to buffer, ", err)
+				break readloop
+			}
+
+			err = ch.Publish(
+				"",
+				q.Name,
+				false,
+				false,
+				amqp.Publishing{
+					ContentType: "text/plain",
+					Body:        buf.Bytes(),
+				})
+			if err != nil {
+				log.Fatalln("Did not send correctly")
+			}
 
 			//TODO: Restart after a long time.
 			break readloop
