@@ -7,9 +7,10 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/yokujin/gousb/usb"
 	"log"
 	"time"
+
+	"github.com/yokujin/gousb/usb"
 )
 
 // The Antbuffer is the point of control over the serial interface to the ant stick.
@@ -130,6 +131,31 @@ func (a *Antbuffer) SetupChannel(channel byte, dev *Antdevicetype) (<-chan bytes
 
 	return retChannel, err
 
+}
+
+// CloseChannel will close the specified channel
+// Currently, this function will discard all other messages until closed
+// TODO: non-blocking
+func (a *Antbuffer) CloseChannel(channel byte) error {
+	log.Println("Closing channels...")
+	a.GenSendAndWait(CloseChannel, channel)
+	// Wait for complete close
+	log.Println("Waiting for confirmation...")
+	for {
+		pkt, err := a.Wait()
+		if err != nil {
+			log.Fatalln("Error while closing, ", err)
+		}
+		if pkt.id == ChannelResponseOrEvent {
+			if pkt.data[2] == 0x07 {
+				// Channel was successfully closed
+				log.Println("Successfully closed channel ", pkt.data[0], " proceeding to exit...")
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // TODO: Error channel

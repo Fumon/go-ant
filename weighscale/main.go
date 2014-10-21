@@ -150,23 +150,7 @@ func main() {
 	}
 	// TODO: This should be implicit in the Antbuffer
 	defer func() {
-		log.Println("Closing channels...")
-		antbuf.GenSendAndWait(CloseChannel, 0x01)
-		// Wait for complete close
-		log.Println("Waiting for confirmation...")
-		for {
-			pkt, err := antbuf.Wait()
-			if err != nil {
-				log.Fatalln("Error while closing, ", err)
-			}
-			if pkt.id == ChannelResponseOrEvent {
-				if pkt.data[2] == 0x07 {
-					// Channel was successfully closed
-					log.Println("Successfully closed channel ", pkt.data[0], " proceeding to exit...")
-					break
-				}
-			}
-		}
+		antbuf.CloseChannel(0x01)
 	}()
 
 	// TODO: Move this somewhere else
