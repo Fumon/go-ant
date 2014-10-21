@@ -140,89 +140,98 @@ func main() {
 		log.Fatalln("Error in creating antbuffer, ", err)
 	}
 
-	// ListenForCheststrap
-	// TODO: this should be using the returned channel to listen
-	// All errors at a higher than channel level are to be handled
-	// by the Antbuffer
-	_, err = antbuf.SetupChannel(0x01, weighscale)
-	if err != nil {
-		log.Fatalln("Error listening to Heart Rate sensor, ", err)
-	}
-	// TODO: This should be implicit in the Antbuffer
-	defer func() {
-		antbuf.CloseChannel(0x01)
-	}()
-
 	// TODO: Move this somewhere else
 	// Catch close signal
 	killchan := make(chan os.Signal, 1)
 	signal.Notify(killchan, os.Interrupt, os.Kill)
 
 	// Listen for everything forever
+	shouldWait := false
+	die := false
 readloop:
 	for {
-		// Die if killed
-		select {
-		case <-killchan:
-			log.Println("Recieved KILL!")
-			break readloop
-		case <-time.After(10 * time.Millisecond):
+		if shouldWait {
+			log.Println("Waiting a while so that we don't catch another weighin too soon")
+			<-time.After(2 * time.Minute)
 		}
-		pkt, err := antbuf.Wait()
-		if err == ErrAntTimedout {
-			// Depending on stuff... might need to relisten for device
-			// Device relisten should really be based off of error
-			// events from the stick.
-			continue
-		} else if err != nil {
-			log.Fatalln("Error in waiting, ", err)
+		// TODO: this should be using the returned channel to listen
+		// All errors at a higher than channel level are to be handled
+		// by the Antbuffer
+		_, err = antbuf.SetupChannel(0x01, weighscale)
+		if err != nil {
+			log.Fatalln("Error listening to Heart Rate sensor, ", err)
 		}
-		log.Println(pkt)
-		// Check for weight packet
-		if pkt.id == BroadcastData && pkt.data[1] == 0x01 {
-			// Grab weight
-			var weight uint16
-			readbuf := bytes.NewBuffer(pkt.data[7:])
-			binary.Read(readbuf, binary.LittleEndian, &weight)
-			weightFactor := float64(weight) / 100.0
 
-			// Write to file & db
-			log.Println("Got a weight of ", weightFactor, "kg or ", (2.204 * weightFactor), "lbs\n\tWriting to file and shutting down.")
-			_, err = file.WriteString(fmt.Sprint(time.Now().UTC().Unix(), "\t", time.Now().UTC(), "\t", weightFactor, "\t", (2.204 * weightFactor), "\n"))
-			if err != nil {
-				log.Fatalln("Problem writing to file, ", err)
+		shouldWait = true
+	weighinloop:
+		for {
+			// Die if killed
+			select {
+			case <-killchan:
+				log.Println("Recieved KILL!")
+				die = true
+				break weighinloop
+			case <-time.After(10 * time.Millisecond):
 			}
-
-			var insertid int64
-			err := db.QueryRow(fmt.Sprintf("INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(%v), %v) RETURNING did", time.Now().UTC().Unix(), weight)).Scan(&insertid)
-			if err != nil {
-				log.Println("ERROR inserting into db, ", err)
-				break readloop
+			pkt, err := antbuf.Wait()
+			if err == ErrAntTimedout {
+				// Depending on stuff... might need to relisten for device
+				// Device relisten should really be based off of error
+				// events from the stick.
+				continue
+			} else if err != nil {
+				log.Fatalln("Error in waiting, ", err)
 			}
-			log.Println("DB did: ", insertid)
+			log.Println(pkt)
+			// Check for weight packet
+			if pkt.id == BroadcastData && pkt.data[1] == 0x01 {
+				// Grab weight
+				var weight uint16
+				readbuf := bytes.NewBuffer(pkt.data[7:])
+				binary.Read(readbuf, binary.LittleEndian, &weight)
+				weightFactor := float64(weight) / 100.0
 
-			// Send alert to processor
-			buf := new(bytes.Buffer)
-			err = binary.Write(buf, binary.LittleEndian, insertid)
-			if err != nil {
-				log.Println("Could not write binary to buffer, ", err)
-				break readloop
+				// Write to file & db
+				log.Println("Got a weight of ", weightFactor, "kg or ", (2.204 * weightFactor), "lbs\n\tWriting to file and shutting down.")
+				_, err = file.WriteString(fmt.Sprint(time.Now().UTC().Unix(), "\t", time.Now().UTC(), "\t", weightFactor, "\t", (2.204 * weightFactor), "\n"))
+				if err != nil {
+					log.Fatalln("Problem writing to file, ", err)
+				}
+
+				var insertid int64
+				err := db.QueryRow(fmt.Sprintf("INSERT INTO buffer.weight (date, weight) VALUES (to_timestamp(%v), %v) RETURNING did", time.Now().UTC().Unix(), weight)).Scan(&insertid)
+				if err != nil {
+					log.Println("ERROR inserting into db, ", err)
+					break readloop
+				}
+				log.Println("DB did: ", insertid)
+
+				// Send alert to processor
+				buf := new(bytes.Buffer)
+				err = binary.Write(buf, binary.LittleEndian, insertid)
+				if err != nil {
+					log.Println("Could not write binary to buffer, ", err)
+					break readloop
+				}
+
+				err = ch.Publish(
+					"",
+					q.Name,
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "text/plain",
+						Body:        buf.Bytes(),
+					})
+				if err != nil {
+					log.Fatalln("Did not send correctly")
+				}
+
+				break weighinloop
 			}
-
-			err = ch.Publish(
-				"",
-				q.Name,
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        buf.Bytes(),
-				})
-			if err != nil {
-				log.Fatalln("Did not send correctly")
-			}
-
-			//TODO: Restart after a long time.
+		}
+		antbuf.CloseChannel(0x01)
+		if die {
 			break readloop
 		}
 	}

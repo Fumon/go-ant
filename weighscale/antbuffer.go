@@ -138,7 +138,13 @@ func (a *Antbuffer) SetupChannel(channel byte, dev *Antdevicetype) (<-chan bytes
 // TODO: non-blocking
 func (a *Antbuffer) CloseChannel(channel byte) error {
 	log.Println("Closing channels...")
-	a.GenSendAndWait(CloseChannel, channel)
+	pkt, _ := a.GenSendAndWait(CloseChannel, channel)
+	if pkt.id == ChannelResponseOrEvent {
+		// If we didn't get an ack
+		if pkt.data[2] != 0x00 {
+			return ErrAntInvalidMisc
+		}
+	}
 	// Wait for complete close
 	log.Println("Waiting for confirmation...")
 	for {
@@ -147,9 +153,9 @@ func (a *Antbuffer) CloseChannel(channel byte) error {
 			log.Fatalln("Error while closing, ", err)
 		}
 		if pkt.id == ChannelResponseOrEvent {
-			if pkt.data[2] == 0x07 {
+			if pkt.data[2] == 0x07 && pkt.data[0] == channel {
 				// Channel was successfully closed
-				log.Println("Successfully closed channel ", pkt.data[0], " proceeding to exit...")
+				log.Println("Successfully closed channel ", pkt.data[0])
 				break
 			}
 		}

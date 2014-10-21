@@ -15,4 +15,5 @@ const (
 	ErrChecksumMismatch    = anterror("Checksum Mismatch")
 	ErrNetworkKeyLength    = anterror("Network key not of correct length")
 	ErrAntTimedout         = anterror("Timed out waiting for a reply from ant stick")
+	ErrAntInvalidMisc      = anterror("There was a problem, there should be a better error message than this but it hasn't been coded yet")
 )
